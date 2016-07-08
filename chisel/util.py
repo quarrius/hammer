@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import re
+import os
+import os.path
 
 def check_type(value, value_type):
     """
@@ -15,7 +17,10 @@ def check_type(value, value_type):
     elif isinstance(value_type, ComplexType):
         return check_type(value, value_type.base_type) and value_type.check(value)
     elif isinstance(value_type, dict):
-        return all(check_type(value[k], v) for (k, v) in value_type.iter_items())
+        try:
+            return all(check_type(value[k], v) for (k, v) in value_type.iter_items())
+        except KeyError:
+            return False
     elif isinstance(value_type, (list, tuple)):
         item_type = value_type[0]
         return (item_type is None) or all(check_type(v, item_type) for v in value)
@@ -50,3 +55,6 @@ class InclusiveRange(ComplexType):
     def check(self, value):
         return (self._check_value[0] <= value) and \
             (value <= self._check_value[1])
+
+def safe_path_join(a, *p):
+    return os.path.join(a, *(s.lstrip(os.sep) for s in p))
