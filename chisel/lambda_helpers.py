@@ -3,59 +3,91 @@
 
 import functools
 import logging
+import json
+import urllib
+
+import boto3
 
 from .util import check_type
 
 mlog = logging.getLogger(__name__)
 
-def unwrap_sns_event(lambda_func):
-    @functools.wraps(lambda_func)
-    def new_lambda_func(event, *pargs, **kwargs):
-        try:
-            result = [lambda_func(r['Sns']['Message'], *pargs, **kwargs) \
-                for r in event['Records']]
-            mlog.debug('Unwrapped SNS message with %d records',
-                len(event['Records']))
-            return result
-        except KeyError as err:
-            mlog.debug('No SNS message to unwrap: %s', err)
-            return lambda_func(event, *pargs, **kwargs)
+def fix_s3_event_object_key(orig_func):
+    @functools.wraps(orig_func):
+    def actual_func(event, context, *pargs, **kwargs):
+        event['object']['key'] = urllib.unqoute_plus(event['object']['key'])
+        return orig_func(event, context, *pargs, **kwargs)
+
+def unwrap_multi_event(unwrapper_func=lambda record: record):
+    def actual_decorator(orig_func):
+        @functools.wraps(orig_func)
+        def actual_func(event, context, *pargs, **kwargs):
+            try:
+                records = event['Records']
+            except KeyError as err:
+                # probably already unwrapped
+                mlog.info('No "Records" key found in event: %s', err)
+                return orig_func(event, context, *pargs, **kwargs)
+            else:
+                mlog.info('Found "Records" key with %02d records', len(records))
+                if len(records) > 0:
+                    if len(records) > 1:
+                        # multiple records, resubmit all but the last
+                        lambda_client = boto3.client('lambda')
+                        for record in records[:-1]:
+                            try:
+                                payload = unwrapper_func(record)
+                            except KeyError as err:
+                                mlog.error('Failed to get payload from record ( %r ): %s',
+                                    record, err)
+                                continue
+                            else:
+                                response = lambda_client.invoke(
+                                    FunctionName=context.invoked_function_arn,
+                                    InvocationType='Event', # async
+                                    Payload=json.dumps(payload),
+                                )
+                                mlog.info('Re-sumbitted record to %s: %r',
+                                    context.invoked_function_arn, response)
+                    # return the last/only record
+                    try:
+                        payload = unwrapper_func(records[-1])
+                    except KeyError as err:
+                        mlog.error('Failed to get payload from record ( %r ): %s',
+                            record, err)
+                        raise ValueError(err)
+                    return orig_func(payload, context, *pargs, **kwargs)
+
+                else:
+                    # no records, nothing to do
+                    raise ValueError('No records found in event')
+        return actual_func
+    return actual_decorator
+
+unwrap_sns_event = unwrap_multi_event(lambda r: r['Sns']['Message'])
+unwrap_s3_event = unwrap_multi_event(lambda r: r['s3'])
+
+def add_logger(orig_func):
+    @functools.wraps(orig_func)
+    def new_lambda_func(event, context, *pargs, **kwargs):
+        logger_name = '{arn}={func_name}'.format(context.invoked_function_arn,
+            orig_func.__name__)
+        flog = logging.getLogger(logger_name)
+        return orig_func(event, context, flog, *pargs, **kwargs)
     return new_lambda_func
 
-def unwrap_s3_event(lambda_func):
-    @functools.wraps(lambda_func)
-    def new_lambda_func(event, *pargs, **kwargs):
-        try:
-            result = [lambda_func(r['s3'], *pargs, **kwargs) \
-                for r in event['Records']]
-            mlog.debug('Unwrapped S3 message with %d records',
-                len(event['Records']))
-            return result
-        except KeyError as err:
-            mlog.debug('No SNS message to unwrap: %s', err)
-            return lambda_func(event, *pargs, **kwargs)
-    return new_lambda_func
-
-def add_logger(lambda_func):
-    @functools.wraps(lambda_func)
-    def new_lambda_func(event, context):
-        flog = logging.getLogger(lambda_func.__name__)
-        flog.setLevel(logging.DEBUG)
-        return lambda_func(event, context, flog)
-    return new_lambda_func
-
-def event_structure(**params):
-    def check_event_structure(lambda_func):
-        @functools.wraps(lambda_func)
-        def event_checker(event, *pargs, **kwargs):
+def verify_event_structure(**params):
+    def actual_decorator(orig_func):
+        @functools.wraps(orig_func)
+        def actual_func(event, context, *pargs, **kwargs):
             if check_type(event, params):
-                return lambda_func(event, *pargs, **kwargs)
+                return orig_func(event, context, *pargs, **kwargs)
             else:
                 raise ValueError('Event structure check failed')
-        return event_checker
-    return check_event_structure
+        return actual_func
+    return actual_decorator
 
-s3_event = event_structure(
+verify_s3_event = verify_event_structure(
     s3SchemaVersion=basestring,
     configurationId=basestring,
     bucket=dict(

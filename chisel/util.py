@@ -18,7 +18,8 @@ def check_type(value, value_type):
         return check_type(value, value_type.base_type) and value_type.check(value)
     elif isinstance(value_type, dict):
         try:
-            return all(check_type(value[k], v) for (k, v) in value_type.iter_items())
+            return all(check_type(value[key], item_type) \
+                for (key, item_type) in value_type.iter_items())
         except KeyError:
             return False
     elif isinstance(value_type, (list, tuple)):
