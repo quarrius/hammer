@@ -1,8 +1,11 @@
 #!/bin/bash
 
-BUILD_DIR=~/tmp/quarry-lambda-build
+set -x
 
-rm -rf "${BUILD_DIR}"
+BUILD_DIR=~/tmp/quarry-lambda-build
+DEST_FILE=~/tmp/chisel-lambda-build.zip
+
+rm -rf "${BUILD_DIR}" "${DEST_FILE}"
 mkdir "${BUILD_DIR}"
 
 pip install -r ~/devel/marble/requirements.txt -t "${BUILD_DIR}"
@@ -16,4 +19,4 @@ cp -r ~/devel/chisel/chisel/ "${BUILD_DIR}/"
 
 pushd "${BUILD_DIR}"
 
-zip -r ./* ~/tmp/chisel-lambda-build.zip
+zip -r ~/tmp/chisel-lambda-build.zip ./*

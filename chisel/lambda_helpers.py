@@ -13,10 +13,11 @@ from .util import check_type
 mlog = logging.getLogger(__name__)
 
 def fix_s3_event_object_key(orig_func):
-    @functools.wraps(orig_func):
+    @functools.wraps(orig_func)
     def actual_func(event, context, *pargs, **kwargs):
-        event['object']['key'] = urllib.unqoute_plus(event['object']['key'])
+        event['object']['key'] = urllib.unquote_plus(event['object']['key'])
         return orig_func(event, context, *pargs, **kwargs)
+    return actual_func
 
 def unwrap_multi_event(unwrapper_func=lambda record: record):
     def actual_decorator(orig_func):
@@ -69,12 +70,13 @@ unwrap_s3_event = unwrap_multi_event(lambda r: r['s3'])
 
 def add_logger(orig_func):
     @functools.wraps(orig_func)
-    def new_lambda_func(event, context, *pargs, **kwargs):
-        logger_name = '{arn}={func_name}'.format(context.invoked_function_arn,
-            orig_func.__name__)
+    def actual_func(event, context, *pargs, **kwargs):
+        logger_name = '{arn}={func_name}'.format(
+            arn=context.invoked_function_arn,
+            func_name=orig_func.__name__)
         flog = logging.getLogger(logger_name)
         return orig_func(event, context, flog, *pargs, **kwargs)
-    return new_lambda_func
+    return actual_func
 
 def verify_types(**params):
     def actual_decorator(orig_func):

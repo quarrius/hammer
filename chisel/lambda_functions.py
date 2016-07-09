@@ -87,13 +87,13 @@ def render_region_heightmap(event, context, flog):
 
     dest_vfs = fsopendir('s3://{bucket}/'.format(bucket='quarry-output'))
     dest_image_fn = os.path.join('heightmaps', *src_obj_key.split('/')[1:]) + '.png'
-    src_region = fsopen('s3://{bucket}/{key}'.format(
-        bucket=src_bucket, key=src_obj_key), 'rb')
+    src_region = RegionFile(fileobj=fsopen('s3://{bucket}/{key}'.format(
+        bucket=src_bucket, key=src_obj_key), 'rb'))
 
     img = Image.new('L', (512, 512))
 
-    for chunk in region.get_metadata():
-        chunk_data = region.get_nbt()
+    for chunk in src_region.get_metadata():
+        chunk_data = src_region.get_nbt(chunk.x, chunk.z)
         heightmap_data = numpy.array(chunk_data['Level']['HeightMap'],
             dtype=numpy.uint8).reshape((16, 16))
         img.paste(Image.fromarray(heightmap_data),
