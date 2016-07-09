@@ -3,6 +3,7 @@
 
 import os.path
 import zipfile
+import logging
 
 import boto3
 from fs.opener import fsopen, fsopendir
@@ -13,6 +14,8 @@ import numpy
 
 from .lambda_helpers import unwrap_s3_event, add_logger, fix_s3_event_object_key
 from .util import safe_path_join
+
+logging.basicConfig()
 
 @unwrap_s3_event
 @fix_s3_event_object_key
