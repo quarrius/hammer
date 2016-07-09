@@ -7,6 +7,9 @@ import zipfile
 import boto3
 from fs.opener import fsopen, fsopendir
 from fs.zipfs import ZipFS
+from nbt.region import RegionFile
+from PIL import Image
+import numpy
 
 from .lambda_helpers import unwrap_s3_event, add_logger, fix_s3_event_object_key
 from .util import safe_path_join
@@ -74,3 +77,27 @@ def process_region_file(event, context, flog):
     #       update db_chunk
     #       update db_chunk.img
     pass
+
+@unwrap_s3_event
+@fix_s3_event_object_key
+@add_logger
+def render_region_heightmap(event, context, flog):
+    src_bucket = event['bucket']['name']
+    src_obj_key = event['object']['key']
+
+    dest_vfs = fsopendir('s3://{bucket}/'.format(bucket='quarry-output'))
+    dest_image_fn = os.path.join('heightmaps', *src_obj_key.split('/')[1:]) + '.png'
+    src_region = fsopen('s3://{bucket}/{key}'.format(
+        bucket=src_bucket, key=src_obj_key), 'rb')
+
+    img = Image.new('L', (512, 512))
+
+    for chunk in region.get_metadata():
+        chunk_data = region.get_nbt()
+        heightmap_data = numpy.array(chunk_data['Level']['HeightMap'],
+            dtype=numpy.uint8).reshape((16, 16))
+        img.paste(Image.fromarray(heightmap_data),
+            box=(chunk.x * 16, chunk.z * 16))
+
+    with dest_vfs.open(dest_image_fn, 'wb') as image_handle:
+        img.save(image_handle, format='PNG')

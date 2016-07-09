@@ -76,7 +76,7 @@ def add_logger(orig_func):
         return orig_func(event, context, flog, *pargs, **kwargs)
     return new_lambda_func
 
-def verify_event_structure(**params):
+def verify_types(**params):
     def actual_decorator(orig_func):
         @functools.wraps(orig_func)
         def actual_func(event, context, *pargs, **kwargs):
@@ -87,7 +87,7 @@ def verify_event_structure(**params):
         return actual_func
     return actual_decorator
 
-verify_s3_event = verify_event_structure(
+verify_s3_event_types = verify_types(
     s3SchemaVersion=basestring,
     configurationId=basestring,
     bucket=dict(

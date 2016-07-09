@@ -5,6 +5,9 @@ import re
 import os
 import os.path
 
+def safe_path_join(a, *p):
+    return os.path.join(a, *(s.lstrip(os.sep) for s in p))
+
 def check_type(value, value_type):
     """
     Recursively check the types of the value against the value_type spec
@@ -56,6 +59,3 @@ class InclusiveRange(ComplexType):
     def check(self, value):
         return (self._check_value[0] <= value) and \
             (value <= self._check_value[1])
-
-def safe_path_join(a, *p):
-    return os.path.join(a, *(s.lstrip(os.sep) for s in p))
