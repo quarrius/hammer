@@ -11,11 +11,14 @@ from fs.zipfs import ZipFS
 from nbt.region import RegionFile
 from PIL import Image
 import numpy
+import marble.world
 
 from .lambda_helpers import unwrap_s3_event, add_logger, fix_s3_event_object_key
 from .util import safe_path_join
 
 logging.basicConfig()
+
+DYNAMODB = boto3.resource('dynamodb')
 
 @unwrap_s3_event
 @fix_s3_event_object_key
@@ -59,8 +62,13 @@ def extract_world_archive(event, context, flog):
 @fix_s3_event_object_key
 @add_logger
 def process_level_dat(event, context, flog):
-    # parse nbt and stick values into db (dynamodb, rds?)
-    pass
+    world_base_dir = os.path.dirname(event['object']['key'])
+    vfs = fsopendir('s3://{bucket}/{key}'.format(
+        bucket=event['bucket']['name'],
+        key=world_base_dir,
+    ))
+
+    world = marble.world.MinecraftWorld.load(vfs)
 
 @unwrap_s3_event
 @fix_s3_event_object_key

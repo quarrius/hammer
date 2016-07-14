@@ -35,6 +35,10 @@ def unwrap_multi_event(unwrapper_func=lambda record: record):
                     if len(records) > 1:
                         # multiple records, resubmit all but the last
                         lambda_client = boto3.client('lambda')
+                        try:
+                            func_arn = context.invoked_function_arn
+                        except AttributeError:
+                            func_arn = 'NO-ARN:{}'.format(orig_func.__name__)
                         for record in records[:-1]:
                             try:
                                 payload = unwrapper_func(record)
@@ -44,12 +48,12 @@ def unwrap_multi_event(unwrapper_func=lambda record: record):
                                 continue
                             else:
                                 response = lambda_client.invoke(
-                                    FunctionName=context.invoked_function_arn,
+                                    FunctionName=func_arn,
                                     InvocationType='Event', # async
                                     Payload=json.dumps(payload),
                                 )
                                 mlog.info('Re-sumbitted record to %s: %r',
-                                    context.invoked_function_arn, response)
+                                    func_arn, response)
                     # return the last/only record
                     try:
                         payload = unwrapper_func(records[-1])
