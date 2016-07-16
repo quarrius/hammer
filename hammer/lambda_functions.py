@@ -54,7 +54,7 @@ def extract_world_archive(event, context, flog):
     src_zip = src_zip.opendir(os.path.dirname(level_dat))
 
     for region_fn in src_zip.walkfiles(wildcard='*.mca'):
-        dest_fn = safe_path_join('extracted-worlds', src_id, region_fn)
+        dest_fn = safe_path_join('worlds', src_id, region_fn)
         flog.info('Extracting: %s -> %s', region_fn, dest_fn)
         s3.setcontents(dest_fn, src_zip.getcontents(region_fn))
 
