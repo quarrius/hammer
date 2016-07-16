@@ -5,7 +5,7 @@ set -x
 BUILD_VERSION="${1:-0.0.0-devel}"
 
 MARBLE_DIR=~/devel/marble
-CHISEL_DIR=~/devel/chisel
+CHISEL_DIR=~/devel/hammer
 
 NUMPY_URL='https://github.com/Miserlou/lambda-packages/raw/master/lambda_packages/numpy/numpy-1.10.4.tar.gz'
 PILLOW_URL='https://github.com/Miserlou/lambda-packages/raw/master/lambda_packages/Pillow/Pillow-3.1.1.tar.gz'
@@ -33,7 +33,7 @@ fi
 tar -xzf "$PILLOW_FILENAME" -C "$BUILD_DIR"
 
 cp -a "${MARBLE_DIR}/marble/" "${BUILD_DIR}/"
-cp -a "${CHISEL_DIR}/chisel/" "${BUILD_DIR}/"
+cp -a "${CHISEL_DIR}/hammer/" "${BUILD_DIR}/"
 
 pushd "${BUILD_DIR}"
 rm -f "${DEST_FILE}"

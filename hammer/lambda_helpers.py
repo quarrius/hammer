@@ -111,3 +111,8 @@ verify_s3_event_types = verify_types(
         sequencer=basestring,
     ),
 )
+
+s3_event = lambda f: \
+    unwrap_s3_event(
+        verify_s3_event_types(
+            fix_s3_event_object_key(f)))

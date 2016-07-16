@@ -8,10 +8,10 @@ import logging
 import boto3
 from fs.opener import fsopen, fsopendir
 from fs.zipfs import ZipFS
-from nbt.region import RegionFile
-from PIL import Image
-import numpy
-import marble.world
+# from nbt.region import RegionFile
+# from PIL import Image
+# import numpy
+# import marble.world
 
 from .lambda_helpers import unwrap_s3_event, add_logger, fix_s3_event_object_key
 from .util import safe_path_join
