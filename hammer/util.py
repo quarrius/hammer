@@ -4,9 +4,19 @@
 import re
 import os
 import os.path
+import json
 
 def safe_path_join(a, *p):
     return os.path.join(a, *(s.lstrip(os.sep) for s in p))
+
+def get_context(context_fn='.context'):
+    try:
+        with open(context_fn, 'r') as ctx_fd:
+            ctx = json.load(ctx_fd)
+    except Exception as err:
+        return {}
+    else:
+        return ctx
 
 def check_type(value, value_type):
     """

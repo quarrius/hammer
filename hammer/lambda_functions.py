@@ -14,11 +14,15 @@ from fs.zipfs import ZipFS
 # import marble.world
 
 from .lambda_helpers import unwrap_s3_event, add_logger, fix_s3_event_object_key
-from .util import safe_path_join
+from .util import safe_path_join, get_context
+from .toybox import DB_INIT, User, World
 
-logging.basicConfig()
+logging.basicConfig(level=logging.DEBUG)
 
-DYNAMODB = boto3.resource('dynamodb')
+CONTEXT = get_context()
+
+DB_OBJ = DB_INIT(CONTEXT['DATABASE_URI'])
+DB_OBJ.connect()
 
 @unwrap_s3_event
 @fix_s3_event_object_key
@@ -26,37 +30,44 @@ DYNAMODB = boto3.resource('dynamodb')
 def extract_world_archive(event, context, flog):
     flog.info('Starting world archive extraction...')
 
-    src_bucket = event['bucket']['name']
-    src_obj_key = event['object']['key']
+    bucket_name = event['bucket']['name']
+    object_key = event['object']['key']
 
-    flog.info('Event object: %s::%s', src_bucket, src_obj_key)
+    flog.debug('Event object: %s::%s', bucket_name, object_key)
 
-    src_dir = os.path.dirname(src_obj_key)
-    src_fn = os.path.basename(src_obj_key)
-    src_id, _ = os.path.splitext(src_fn)
+    # TODO: error handling
+    api_key = os.path.splitext(os.path.split(object_key)[1])[0]
+    world = World.select().where(World.api_key == api_key).get()
+    user = world.user
 
-    flog.info('Source dir : filename : world_id = %s:%s:%s',
-        src_dir, src_fn, src_id)
+    flog.info('Extracting for user::world: %s:%s', user.guid, world.guid)
 
-    s3 = fsopendir('s3://{bucket}/'.format(bucket=src_bucket))
-    src_fd = s3.open(src_obj_key, 'rb')
+    object_fd = fsopen('s3://{bucket}/{key}'.format(
+        bucket=bucket_name,
+        key=object_key,
+    ))
+    archive_fs = ZipFS(object_fd, 'r')
+    dest_fs = fsopendir('s3://{bucket}/worlds/{user_guid}/{world_guid}/'.format(
+        bucket=bucket_name,
+        user_guid=user.guid,
+        world_guid=world.guid,
+    ))
 
-    src_zip = ZipFS(src_fd, 'r')
-
-    flog.info('Searching for level.dat ...')
-
-    for fn in src_zip.walkfiles(wildcard='level.dat'):
-        level_dat = fn
+    for fn in archive_fs.walkfiles(wildcard='level.dat'):
+        level_dat_fn = fn
         break
+    flog.debug('Found level.dat at: %s', level_dat_fn)
 
-    flog.info('Found level.dat at: %s', level_dat)
+    archive_fs = archive_fs.opendir(os.path.dirname(level_dat_fn))
 
-    src_zip = src_zip.opendir(os.path.dirname(level_dat))
+    flog.info('Extracting level.dat')
+    # TODO: make sure these paths are actually safe
+    dest_fs.setcontents('level.dat', archive_fs.getcontents('level.dat'))
+    for region_fn in archive_fs.walkfiles(wildcard='*.mca'):
+        flog.info('Extracting file: %s', region_fn)
+        dest_fs.setcontents(region_fn, archive_fs.getcontents(region_fn))
 
-    for region_fn in src_zip.walkfiles(wildcard='*.mca'):
-        dest_fn = safe_path_join('worlds', src_id, region_fn)
-        flog.info('Extracting: %s -> %s', region_fn, dest_fn)
-        s3.setcontents(dest_fn, src_zip.getcontents(region_fn))
+    flog.info('Finished world archive extraction')
 
 @unwrap_s3_event
 @fix_s3_event_object_key
