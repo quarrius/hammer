@@ -14,14 +14,14 @@ from fs.zipfs import ZipFS
 # import marble.world
 
 from .lambda_helpers import unwrap_s3_event, add_logger, fix_s3_event_object_key
-from .util import safe_path_join, get_context
-from .toybox import DB_INIT, User, World
+from .util import safe_path_join
+from .toybox import CFG_INIT, DB_INIT, User, World
 
 logging.basicConfig(level=logging.DEBUG)
 
-CONTEXT = get_context()
+CFG = CFG_INIT()
 
-DB_OBJ = DB_INIT(CONTEXT['DATABASE_URI'])
+DB_OBJ = DB_INIT(CFG.get('config:toybox:DATABASE_URI'))
 DB_OBJ.connect()
 
 @unwrap_s3_event
