@@ -3,7 +3,6 @@
 
 import os.path
 import zipfile
-import logging
 
 import boto3
 from fs.opener import fsopen, fsopendir
@@ -14,14 +13,12 @@ from fs.zipfs import ZipFS
 # import marble.world
 
 from .lambda_helpers import unwrap_s3_event, add_logger, fix_s3_event_object_key
-from .util import safe_path_join, get_context
-from .toybox import DB_INIT, User, World
+from .util import safe_path_join
+from .toybox import CFG_INIT, DB_INIT, User, World
 
-logging.basicConfig(level=logging.DEBUG)
+CFG = CFG_INIT()
 
-CONTEXT = get_context()
-
-DB_OBJ = DB_INIT(CONTEXT['DATABASE_URI'])
+DB_OBJ = DB_INIT(CFG.get('config:toybox:DATABASE_URI'))
 DB_OBJ.connect()
 
 @unwrap_s3_event
@@ -45,13 +42,13 @@ def extract_world_archive(event, context, flog):
     object_fd = fsopen('s3://{bucket}/{key}'.format(
         bucket=bucket_name,
         key=object_key,
-    ))
+    ), 'rb')
     archive_fs = ZipFS(object_fd, 'r')
-    dest_fs = fsopendir('s3://{bucket}/worlds/{user_guid}/{world_guid}/'.format(
-        bucket=bucket_name,
+    dest_fs = fsopendir('s3://{bucket}/'.format(bucket=bucket_name))
+    dest_prefix = 'worlds/{user_guid}/{world_guid}/'.format(
         user_guid=user.guid,
         world_guid=world.guid,
-    ))
+    )
 
     for fn in archive_fs.walkfiles(wildcard='level.dat'):
         level_dat_fn = fn
@@ -62,10 +59,14 @@ def extract_world_archive(event, context, flog):
 
     flog.info('Extracting level.dat')
     # TODO: make sure these paths are actually safe
-    dest_fs.setcontents('level.dat', archive_fs.getcontents('level.dat'))
+    dest_fs.setcontents(
+        safe_path_join(dest_prefix, 'level.dat'),
+        archive_fs.getcontents('level.dat'))
     for region_fn in archive_fs.walkfiles(wildcard='*.mca'):
         flog.info('Extracting file: %s', region_fn)
-        dest_fs.setcontents(region_fn, archive_fs.getcontents(region_fn))
+        dest_fs.setcontents(
+            safe_path_join(dest_prefix, region_fn),
+            archive_fs.getcontents(region_fn))
 
     flog.info('Finished world archive extraction')
 

@@ -11,6 +11,7 @@ import boto3
 from .util import check_type
 
 mlog = logging.getLogger(__name__)
+mlog.setLevel(logging.DEBUG)
 
 def fix_s3_event_object_key(orig_func):
     @functools.wraps(orig_func)
@@ -79,6 +80,7 @@ def add_logger(orig_func):
             arn=context.invoked_function_arn,
             func_name=orig_func.__name__)
         flog = logging.getLogger(logger_name)
+        flog.setLevel(logging.DEBUG)
         return orig_func(event, context, flog, *pargs, **kwargs)
     return actual_func
 
