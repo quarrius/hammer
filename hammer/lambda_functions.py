@@ -45,8 +45,8 @@ def extract_world_archive(event, context, flog):
     object_fd = fsopen('s3://{bucket}/{key}'.format(
         bucket=bucket_name,
         key=object_key,
-    ))
-    archive_fs = ZipFS(object_fd, 'r')
+    ), 'rb')
+    archive_fs = ZipFS(object_fd, 'rb')
     dest_fs = fsopendir('s3://{bucket}/worlds/{user_guid}/{world_guid}/'.format(
         bucket=bucket_name,
         user_guid=user.guid,
