@@ -14,12 +14,7 @@ from fs.zipfs import ZipFS
 
 from .lambda_helpers import unwrap_s3_event, add_logger, fix_s3_event_object_key
 from .util import safe_path_join
-from .toybox import CFG_INIT, DB_INIT, User, World
-
-CFG = CFG_INIT()
-
-DB_OBJ = DB_INIT(CFG.get('config:toybox:DATABASE_URI'))
-DB_OBJ.connect()
+from toybox import User, World
 
 @unwrap_s3_event
 @fix_s3_event_object_key
